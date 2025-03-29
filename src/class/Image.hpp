@@ -5,6 +5,9 @@
 #include <vector>
 #include <string>
 
+#define INPUT "assets/input/"
+#define OUTPUT "assets/output/"
+
 using namespace std;
 
 /**
@@ -51,7 +54,7 @@ public:
      * @return true
      * @return false
      */
-    virtual bool load(const string &path) = 0;
+    virtual bool load(const string &fileName) = 0;
 
     /**
      * @brief Save image
@@ -60,7 +63,7 @@ public:
      * @return true
      * @return false
      */
-    virtual bool save(const string &path) = 0;
+    virtual bool save(const string &fileName) = 0;
 
     /**
      * @brief Get the Width object
