@@ -1,2 +1,8 @@
+# ignore bin folder
 bin/
+
+# ignore output folder
 assets/output/
+
+#ignore .vscode folder
+.vscode/

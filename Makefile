@@ -1,6 +1,9 @@
 # Définition des variables
 GPP = g++ -Wall
 SRC = ./src
+SRC_CLASS = ./src/class
+SRC_CLASS_EXTENSION = ./src/class/imageExtension
+
 BIN = ./bin
 
 all: start
@@ -10,15 +13,22 @@ deleteAll :
 	@echo Suppression du contenu du répertoire $(BIN)
 	rm -f $(BIN)/*.o $(BIN)/*.bin
 
-# La cible "compilCompressor" est exécutée en tapant la commande "make compilCompressor"
-compilCompressor :
-	@echo Compilation Compressor
-	$(GPP) -c $(SRC)/Compressor.cpp -o $(BIN)/Compressor.o
+# La cible "compilAnimals" est exécutée en tapant la commande "make compilAnimals"
+compilImage : $(BIN)/Image.o $(BIN)/PPMImage.o
+
+$(BIN)/Image.o : $(SRC_CLASS)/Image.cpp
+	@echo "Compilation Image.cpp"
+	$(GPP) -c $< -o $@
+
+$(BIN)/PPMImage.o : $(SRC_CLASS_EXTENSION)/PPMImage.cpp
+	@echo "Compilation PPMImage.cpp"
+	$(GPP) -c $< -o $@
+
 
 # La cible "compilMain" est exécutée en tapant la commande "make compilMain"
-compilMain : deleteAll compilCompressor
+compilMain : deleteAll compilImage
 	@echo Compilation de main
-	$(GPP) ./main.cpp $(BIN)/Compressor.o -o $(BIN)/main.bin
+	$(GPP) ./main.cpp $(BIN)/Image.o -o $(BIN)/main.bin
 
 # La cible "launchMain" est exécutée en tapant la commande "make launchMain"
 launchMain :
