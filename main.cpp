@@ -5,19 +5,18 @@ using namespace std;
 int main()
 {
 
+    string fileName = "Clown.ppm";
+    string outputFileName = "output.ppm";
+
     PPMImage ppm = PPMImage();
-    if (ppm.load("Gris.ppm"))
+    if (ppm.load(fileName))
     {
         cout << "Image size: (" << ppm.getWidth() << ", " << ppm.getHeight() << ")" << endl;
     } else {
         cerr << "Error in loading of image" << endl;
     }
 
-    for(Pixel pixel : ppm.getPixels()) {
-        cout << "RGB(" << pixel.R << ", " << pixel.G << ", " << pixel.B << ")" << endl;
-    }
-
-    ppm.save("Grisoutput.ppm");
+    ppm.save(outputFileName);
 
     return 0;
 }
