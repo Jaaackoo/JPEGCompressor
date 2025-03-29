@@ -24,11 +24,16 @@ $(BIN)/PPMImage.o : $(SRC_CLASS_EXTENSION)/PPMImage.cpp
 	@echo "Compilation PPMImage.cpp"
 	$(GPP) -c $< -o $@
 
+# La cible "compilAttack" est exécutée en tapant la commande "make compilAttack"
+compilJPEGCompressor : compilImage
+	@echo "Compilation compilJPEGCompressor"
+	$(GPP) -c $(SRC_CLASS)/JPEGCompressor.cpp -o $(BIN)/JPEGCompressor.o
+
 
 # La cible "compilMain" est exécutée en tapant la commande "make compilMain"
 compilMain : deleteAll compilImage
 	@echo Compilation de main
-	$(GPP) ./main.cpp $(BIN)/Image.o -o $(BIN)/main.bin
+	$(GPP) $(SRC)/main.cpp $(BIN)/Image.o -o $(BIN)/main.bin
 
 # La cible "launchMain" est exécutée en tapant la commande "make launchMain"
 launchMain :

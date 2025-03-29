@@ -1,4 +1,5 @@
-#include "src/class/imageExtension/PPMImage.cpp"
+#include "class/imageExtension/PPMImage.cpp"
+#include "class/JPEGCompressor.hpp"
 
 using namespace std;
 
@@ -12,11 +13,8 @@ int main()
     if (ppm.load(fileName))
     {
         cout << "Image size: (" << ppm.getWidth() << ", " << ppm.getHeight() << ")" << endl;
-    } else {
-        cerr << "Error in loading of image" << endl;
     }
 
-    ppm.save(outputFileName);
 
-    return 0;
+        return 0;
 }
