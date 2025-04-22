@@ -39,3 +39,14 @@ vector<Pixel> &Image::getPixels()
 {
     return this->pixels;
 }
+
+void Image::setPixels(const vector<Pixel> &pixels)
+{
+    this->pixels = pixels;
+}
+
+void Image::setSize(int width, int height)
+{
+    this->width = width;
+    this->height = height;
+}

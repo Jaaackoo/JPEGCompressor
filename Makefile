@@ -24,16 +24,30 @@ $(BIN)/PPMImage.o : $(SRC_CLASS_EXTENSION)/PPMImage.cpp
 	@echo "Compilation PPMImage.cpp"
 	$(GPP) -c $< -o $@
 
+# La cible "compilJPEGWriter" est exécutée en tapant la commande "make compilJPEGWriter"
+compilJPEGWriter :
+	@echo "Compilation compilJPEGWriter"
+	$(GPP) -c $(SRC_CLASS)/JPEGWriter.cpp -o $(BIN)/JPEGWriter.o
+
+# La cible "compilHuffman" est exécutée en tapant la commande "make compilHuffman"
+compilHuffman :
+	@echo "Compilation compilHuffman"
+	$(GPP) -c $(SRC_CLASS)/Huffman.cpp -o $(BIN)/Huffman.o
+
 # La cible "compilAttack" est exécutée en tapant la commande "make compilAttack"
-compilJPEGCompressor : compilImage
+compilJPEGCompressor : compilImage compilHuffman compilJPEGWriter
 	@echo "Compilation compilJPEGCompressor"
 	$(GPP) -c $(SRC_CLASS)/JPEGCompressor.cpp -o $(BIN)/JPEGCompressor.o
 
+# La cible "compilUtils" est exécutée en tapant la commande "make compilUtils"
+compilUtils : compilJPEGCompressor
+	@echo "Compilation Utils"
+	$(GPP) -c $(SRC)/tools/utils.cpp -o $(BIN)/utils.o
 
 # La cible "compilMain" est exécutée en tapant la commande "make compilMain"
-compilMain : deleteAll compilImage
+compilMain : deleteAll compilJPEGCompressor compilUtils
 	@echo Compilation de main
-	$(GPP) $(SRC)/main.cpp $(BIN)/Image.o -o $(BIN)/main.bin
+	$(GPP) $(SRC)/main.cpp $(BIN)/Image.o $(BIN)/JPEGCompressor.o $(BIN)/Huffman.o $(BIN)/JPEGWriter.o $(BIN)/utils.o -o $(BIN)/main.bin
 
 # La cible "launchMain" est exécutée en tapant la commande "make launchMain"
 launchMain :

@@ -21,6 +21,8 @@ private:
 public:
     bool load(const string &fileName) override;
     bool save(const string &fileName) override;
+    void setMaxVal(int maxVal);
+    void setFileType(string fileType);
 };
 
 #endif

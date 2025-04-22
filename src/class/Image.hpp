@@ -92,5 +92,19 @@ public:
      * @return vector<Pixel>&
      */
     vector<Pixel> &getPixels();
+
+    /**
+     * @brief Set the Pixels object
+     *
+     */
+    void setPixels(const vector<Pixel> &pixels);
+
+    /**
+     * @brief Set the Size object
+     * 
+     * @param width 
+     * @param height 
+     */
+    void setSize(int width, int height);
 };
 #endif

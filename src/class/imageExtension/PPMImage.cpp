@@ -99,7 +99,7 @@ bool PPMImage::saveP3(const string &fileName)
     file << this->fileType << endl
          << this->width << " " << this->height << endl
          << this->maxVal << endl;
-         
+
     for (const auto &p : pixels)
     {
         file << static_cast<int>(p.R) << " "
@@ -128,7 +128,7 @@ bool PPMImage::saveP6(const string &filename)
     // Write the file
     for (const auto &p : pixels)
     {
-        // Tells compilator that it's a char 
+        // Tells compilator that it's a char
         file.write(reinterpret_cast<const char *>(&p.R), 1);
         file.write(reinterpret_cast<const char *>(&p.G), 1);
         file.write(reinterpret_cast<const char *>(&p.B), 1);
@@ -149,4 +149,14 @@ bool PPMImage::save(const string &filename)
     }
 
     return false;
+}
+
+void PPMImage::setFileType(string fileType)
+{
+    this->fileType = fileType;
+}
+
+void PPMImage::setMaxVal(int maxVal)
+{
+    this->maxVal = maxVal;
 }
