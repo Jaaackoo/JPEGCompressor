@@ -30,12 +30,21 @@ int main()
     }
     std::cout << "\n";
 
-    compressor.printQuantizedBlockY(0);
+    auto rle = compressor.runLengthEncode(zz);
 
-    PPMImage reconstructed = compressor.reconstructRGBImage();
-    reconstructed.save("resampledImage.ppm");
+    std::cout << "RLE output:\n";
+    for (const auto &[zeros, value] : rle)
+    {
+        std::cout << "(" << zeros << "," << value << ") ";
+    }
+    std::cout << "\n";
 
-    test_YcrCb(&img);
+    // compressor.printQuantizedBlockY(0);
+
+    // PPMImage reconstructed = compressor.reconstructRGBImage();
+    // reconstructed.save("resampledImage.ppm");
+
+    // test_YcrCb(&img);
 
     return 0;
 }

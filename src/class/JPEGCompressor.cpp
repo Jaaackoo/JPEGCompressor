@@ -267,7 +267,7 @@ void JPEGCompressor::quantizeAllBlocks()
         qBlocksCr.push_back(quantizeBlock(block, standardChrominanceQuantTable));
 }
 
-const std::vector<std::vector<int>>& JPEGCompressor::getQuantizedYBlock(int index) const
+const std::vector<std::vector<int>> &JPEGCompressor::getQuantizedYBlock(int index) const
 {
     if (index < 0 || static_cast<size_t>(index) >= qBlocksY.size())
     {
@@ -277,7 +277,6 @@ const std::vector<std::vector<int>>& JPEGCompressor::getQuantizedYBlock(int inde
     }
     return qBlocksY[index];
 }
-
 
 std::vector<int> JPEGCompressor::zigzagScan(const std::vector<std::vector<int>> &block)
 {
@@ -292,6 +291,35 @@ std::vector<int> JPEGCompressor::zigzagScan(const std::vector<std::vector<int>> 
     }
 
     return result;
+}
+
+std::vector<std::pair<int, int>> JPEGCompressor::runLengthEncode(const std::vector<int> &zigzaggedBlock)
+{
+    std::vector<std::pair<int, int>> rle;
+    int zeroCount = 0;
+
+    // Start at index 1: DC is treated differently (first value)
+    rle.push_back({0, zigzaggedBlock[0]}); // DC coefficient
+
+    for (size_t i = 1; i < zigzaggedBlock.size(); ++i)
+    {
+        if (zigzaggedBlock[i] == 0)
+        {
+            ++zeroCount;
+        }
+        else
+        {
+            rle.push_back({zeroCount, zigzaggedBlock[i]});
+            zeroCount = 0;
+        }
+    }
+
+    if (zeroCount > 0)
+    {
+        rle.push_back({0, 0}); // EOB (End Of Block)
+    }
+
+    return rle;
 }
 
 PPMImage JPEGCompressor::reconstructRGBImage() const
