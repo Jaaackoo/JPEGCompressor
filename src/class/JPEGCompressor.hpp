@@ -10,6 +10,7 @@
 #include "imageExtension/PPMImage.hpp"
 #include <cmath>
 #include <iomanip>
+#include <bitset> // for binary simulation
 
 using namespace std;
 
@@ -38,6 +39,9 @@ public:
     std::vector<int> zigzagScan(const std::vector<std::vector<int>> &block);
 
     std::vector<std::pair<int, int>> runLengthEncode(const std::vector<int> &zigzaggedBlock);
+
+    std::string huffmanEncodeDC(int dcDiff);
+    std::string huffmanEncodeAC(const std::vector<std::pair<int, int>> &rleBlock);
 
     // test
     PPMImage reconstructRGBImage() const;

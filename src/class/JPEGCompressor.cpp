@@ -322,6 +322,71 @@ std::vector<std::pair<int, int>> JPEGCompressor::runLengthEncode(const std::vect
     return rle;
 }
 
+// Simplified DC encoding
+std::string JPEGCompressor::huffmanEncodeDC(int dcDiff)
+{
+    int bits = 0;
+    int temp = std::abs(dcDiff);
+
+    while (temp > 0)
+    {
+        temp >>= 1;
+        bits++;
+    }
+
+    // Simulate writing the category (size) and the actual bits
+    std::string result = "[DC Category " + std::to_string(bits) + "]";
+
+    if (bits > 0)
+    {
+        int positiveVal = (dcDiff >= 0) ? dcDiff : ((1 << bits) - 1 + dcDiff);
+        result += " bits=" + std::bitset<12>(positiveVal).to_string().substr(12 - bits, bits);
+    }
+
+    return result;
+}
+
+// Simplified AC encoding
+std::string JPEGCompressor::huffmanEncodeAC(const std::vector<std::pair<int, int>> &rleBlock)
+{
+    std::string result;
+    for (size_t i = 1; i < rleBlock.size(); ++i) // Skip DC
+    {
+        int zeros = rleBlock[i].first;
+        int val = rleBlock[i].second;
+
+        if (val == 0 && zeros == 0)
+        {
+            result += " [EOB]";
+            break;
+        }
+
+        while (zeros > 15)
+        {
+            result += " [ZRL]"; // Zero Run Length (16 zeros)
+            zeros -= 16;
+        }
+
+        int bits = 0;
+        int temp = std::abs(val);
+        while (temp > 0)
+        {
+            temp >>= 1;
+            bits++;
+        }
+
+        result += " [" + std::to_string(zeros) + "/" + std::to_string(bits) + "]";
+
+        if (bits > 0)
+        {
+            int positiveVal = (val >= 0) ? val : ((1 << bits) - 1 + val);
+            result += " bits=" + std::bitset<12>(positiveVal).to_string().substr(12 - bits, bits);
+        }
+    }
+
+    return result;
+}
+
 PPMImage JPEGCompressor::reconstructRGBImage() const
 {
     std::vector<Pixel> reconstructedPixels;
