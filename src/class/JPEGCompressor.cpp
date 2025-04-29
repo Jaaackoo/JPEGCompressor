@@ -75,9 +75,9 @@ void JPEGCompressor::subsample420()
     Cb.resize(height, std::vector<double>(width));
     Cr.resize(height, std::vector<double>(width));
 
-    for (int y = 0; y < height; ++y)
+    for (int y = 0; y < height; y++)
     {
-        for (int x = 0; x < width; ++x)
+        for (int x = 0; x < width; x++)
         {
             const YCbCrPixel &p = ycbcrPixels[y * width + x];
             Y[y][x] = p.y;
@@ -102,9 +102,9 @@ void JPEGCompressor::subsample420()
             int count = 0;
 
             // Handle edges safely (even if width or height is odd)
-            for (int dy = 0; dy < 2; ++dy)
+            for (int dy = 0; dy < 2; dy++)
             {
-                for (int dx = 0; dx < 2; ++dx)
+                for (int dx = 0; dx < 2; dx++)
                 {
                     int yy = y + dy;
                     int xx = x + dx;
@@ -136,9 +136,9 @@ void JPEGCompressor::splitIntoBlocks()
             {
                 std::vector<std::vector<double>> block(8, std::vector<double>(8));
 
-                for (int dy = 0; dy < 8; ++dy)
+                for (int dy = 0; dy < 8; dy++)
                 {
-                    for (int dx = 0; dx < 8; ++dx)
+                    for (int dx = 0; dx < 8; dx++)
                     {
                         int yy = std::min(by + dy, blockHeight - 1); // Clamp to edge
                         int xx = std::min(bx + dx, blockWidth - 1);  // Clamp to edge
@@ -176,14 +176,14 @@ std::vector<std::vector<double>> JPEGCompressor::applyDCT(const std::vector<std:
     const double PI = std::acos(-1);
     std::vector<std::vector<double>> dctBlock(8, std::vector<double>(8, 0.0));
 
-    for (int u = 0; u < 8; ++u)
+    for (int u = 0; u < 8; u++)
     {
-        for (int v = 0; v < 8; ++v)
+        for (int v = 0; v < 8; v++)
         {
             double sum = 0.0;
-            for (int x = 0; x < 8; ++x)
+            for (int x = 0; x < 8; x++)
             {
-                for (int y = 0; y < 8; ++y)
+                for (int y = 0; y < 8; y++)
                 {
                     sum += block[x][y] *
                            std::cos((2 * x + 1) * u * PI / 16.0) *
@@ -238,9 +238,9 @@ std::vector<std::vector<int>> JPEGCompressor::quantizeBlock(
     const uint8_t table[8][8])
 {
     std::vector<std::vector<int>> quantized(8, std::vector<int>(8));
-    for (int y = 0; y < 8; ++y)
+    for (int y = 0; y < 8; y++)
     {
-        for (int x = 0; x < 8; ++x)
+        for (int x = 0; x < 8; x++)
         {
             quantized[y][x] = static_cast<int>(std::round(block[y][x] / table[y][x]));
         }
@@ -301,7 +301,7 @@ std::vector<std::pair<int, int>> JPEGCompressor::runLengthEncode(const std::vect
     // Start at index 1: DC is treated differently (first value)
     rle.push_back({0, zigzaggedBlock[0]}); // DC coefficient
 
-    for (size_t i = 1; i < zigzaggedBlock.size(); ++i)
+    for (size_t i = 1; i < zigzaggedBlock.size(); i++)
     {
         if (zigzaggedBlock[i] == 0)
         {
