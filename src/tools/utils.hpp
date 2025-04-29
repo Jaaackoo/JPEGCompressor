@@ -10,4 +10,7 @@ void test_DCT(Image *img);
 void test_quantification(Image *img);
 array<int, 64UL> test_zigzag(Image *img);
 
+
+
+
 #endif

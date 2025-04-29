@@ -1,62 +1,63 @@
-// #include "utils.hpp"
-// #include "../class/JPEGCompressor.hpp"
-// #include <algorithm>
-// #include <string>
+#include "utils.hpp"
+#include "../class/JPEGCompressor.hpp"
+#include <algorithm>
+#include <string>
 
-// #include "../class/imageExtension/PPMImage.hpp"
+#include "../class/imageExtension/PPMImage.hpp"
 
-// void test_YcrCb(Image *img)
-// {
-//     vector<Pixel> yPixels, cbPixels, crPixels;
-//     const vector<Pixel> pixels = img->getPixels();
+void test_YcrCb(Image *img)
+{
+    vector<Pixel> yPixels, cbPixels, crPixels;
+    const vector<Pixel> pixels = img->getPixels();
 
-//     yPixels.reserve(pixels.size());
-//     cbPixels.reserve(pixels.size());
-//     crPixels.reserve(pixels.size());
+    yPixels.reserve(pixels.size());
+    cbPixels.reserve(pixels.size());
+    crPixels.reserve(pixels.size());
 
-//     cout << "abv" << endl;
-//     for (const Pixel &p : pixels)
-//     {
-//         float r = static_cast<float>(p.R);
-//         float g = static_cast<float>(p.G);
-//         float b = static_cast<float>(p.B);
+    for (const Pixel &p : pixels)
+    {
+        float r = static_cast<float>(p.R);
+        float g = static_cast<float>(p.G);
+        float b = static_cast<float>(p.B);
 
-//         float y = 0.299f * r + 0.587f * g + 0.114f * b;
-//         float cb = -0.1687f * r - 0.3313f * g + 0.5f * b + 128.0f;
-//         float cr = 0.5f * r - 0.4187f * g - 0.0813f * b + 128.0f;
+        float y = 0.299 * r + 0.587 * g + 0.114 * b;
+        float cb = -0.1687 * r - 0.3313 * g + 0.5 * b + 128;
+        float cr = 0.5 * r - 0.4187 * g - 0.0813 * b + 128;
 
-//         // Pour l'affichage en niveaux de gris
-//         uint8_t Y = clamp(static_cast<int>(y), 0, 255);
-//         uint8_t Cb = clamp(static_cast<int>(cb), 0, 255);
-//         uint8_t Cr = clamp(static_cast<int>(cr), 0, 255);
+        // Pour l'affichage en niveaux de gris
+        uint8_t Y = clamp(static_cast<int>(y), 0, 255);
+        uint8_t Cb = clamp(static_cast<int>(cb), 0, 255);
+        uint8_t Cr = clamp(static_cast<int>(cr), 0, 255);
 
-//         yPixels.push_back({Y, Y, Y});     // On doit voir le même constraste de lumiere
-//         cbPixels.push_back({Cb, Cb, Cb}); // On voit que les zones bleus
-//         crPixels.push_back({Cr, Cr, Cr}); // On voit que les zones rouges
-//     }
+        yPixels.push_back({Y, Y, Y});     // On doit voir le même constraste de lumiere
+        cbPixels.push_back({Cb, Cb, Cb}); // On voit que les zones bleus
+        crPixels.push_back({Cr, Cr, Cr}); // On voit que les zones rouges
+    }
 
-//     PPMImage yImg, cbImg, crImg;
+    PPMImage yImg, cbImg, crImg;
 
-//     yImg.setFileType("P6");
-//     cbImg.setFileType("P6");
-//     crImg.setFileType("P6");
+    yImg.setFileType("P6");
+    cbImg.setFileType("P6");
+    crImg.setFileType("P6");
 
-//     yImg.setMaxVal(255);
-//     cbImg.setMaxVal(255);
-//     crImg.setMaxVal(255);
+    yImg.setMaxVal(255);
+    cbImg.setMaxVal(255);
+    crImg.setMaxVal(255);
 
-//     yImg.setSize(img->getHeight(), img->getWidth());
-//     cbImg.setSize(img->getHeight(), img->getWidth());
-//     crImg.setSize(img->getHeight(), img->getWidth());
+    yImg.setSize(img->getHeight(), img->getWidth());
+    cbImg.setSize(img->getHeight(), img->getWidth());
+    crImg.setSize(img->getHeight(), img->getWidth());
 
-//     yImg.setPixels(yPixels);
-//     cbImg.setPixels(cbPixels);
-//     crImg.setPixels(crPixels);
+    yImg.setPixels(yPixels);
+    cbImg.setPixels(cbPixels);
+    crImg.setPixels(crPixels);
 
-//     yImg.save("Clown_Y.ppm");
-//     cbImg.save("Clown_Cb.ppm");
-//     crImg.save("Clown_Cr.ppm");
-// }
+    yImg.save("Clown_Y.ppm");
+    cbImg.save("Clown_Cb.ppm");
+    crImg.save("Clown_Cr.ppm");
+}
+
+
 
 // void test_splitYToBlocks(Image *img)
 // {
