@@ -20,13 +20,15 @@ int main()
 
     JPEGCompressor compressor(img);
 
-    compressor.compress();
+    // compressor.compress();
 
     // 3. Convert RGB → YCbCr
     compressor.convertToYCbCr();
 
     // 4. Subsample (4:2:0)
     compressor.subsample420();
+    PPMImage reconstructed = compressor.reconstructRGBImage();
+    reconstructed.save("resampledImage.ppm");
 
     // 5. Split into 8x8 blocks
     compressor.splitIntoBlocks();
@@ -72,9 +74,6 @@ int main()
 }
 
 // compressor.printQuantizedBlockY(0);
-
-// PPMImage reconstructed = compressor.reconstructRGBImage();
-// reconstructed.save("resampledImage.ppm");
 
 // test_YcrCb(&img);
 
