@@ -47,7 +47,11 @@ public:
     PPMImage reconstructRGBImage() const;
     void printQuantizedBlockY(int blockIndex) const;
 
-private:
+    int getHeight(void) const;
+    int getWidth(void) const;
+
+    void writeJPEGFile(const std::string &filename);
+
     int width;
     int height;
     vector<Pixel> pixels;
