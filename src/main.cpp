@@ -19,7 +19,8 @@ int main()
     }
 
     JPEGCompressor compressor(img);
-    compressor.writeJPEGFile("ALED.jpg");
+    compressor.compress();
+    compressor.writeJPEGFile("ALEDz.jpg");
 
     return 0;
     // compressor.compress();

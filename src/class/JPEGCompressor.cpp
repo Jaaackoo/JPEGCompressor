@@ -498,8 +498,23 @@ void writeHuffmanTables(std::ofstream &file)
 {
     // DC Luminance
     uint8_t bits_dc_luminance[16] = {
-        0x00, 0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01,
-        0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+        0x00, // 1-bit codes:   0
+        0x01, // 2-bit codes:   1
+        0x05, // 3-bit codes:   5
+        0x01, // 4-bit codes:   1
+        0x01, // 5-bit codes:   1
+        0x01, // 6-bit codes:   1
+        0x01, // 7-bit codes:   1
+        0x01, // 8-bit codes:   1
+        0x01, // 9-bit codes:   1
+        0x00, // 10-bit codes:  0
+        0x00, // 11-bit codes:  0
+        0x00, // 12-bit codes:  0
+        0x00, // 13-bit codes:  0
+        0x00, // 14-bit codes:  0
+        0x00, // 15-bit codes:  0
+        0x00  // 16-bit codes:  0
+    };
     uint8_t val_dc_luminance[12] = {
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 
@@ -540,8 +555,8 @@ void writeHuffmanTables(std::ofstream &file)
 
     file.put(0xFF);
     file.put(0xC4);
-    file.put(0x01);
-    file.put(0xA2); // Length = 418 (2 + 1 + 16 + 162)
+    file.put(0x00);
+    file.put(0xB5); // Length = 418 (2 + 1 + 16 + 162)
     file.put(0x10); // AC, Table 0
     file.write(reinterpret_cast<char *>(bits_ac_luminance), 16);
     file.write(reinterpret_cast<char *>(val_ac_luminance), 162);
@@ -590,8 +605,8 @@ void writeHuffmanTables(std::ofstream &file)
 
     file.put(0xFF);
     file.put(0xC4);
-    file.put(0x01);
-    file.put(0xA2);
+    file.put(0x00);
+    file.put(0xB5);
     file.put(0x11); // AC, Table 1
     file.write(reinterpret_cast<char *>(bits_ac_chrominance), 16);
     file.write(reinterpret_cast<char *>(val_ac_chrominance), 162);
@@ -618,18 +633,31 @@ void JPEGCompressor::writeJPEGFile(const std::string &filename)
     file.put(0xFF);
     file.put(0xC0);
     file.put(0x00);
-    file.put(0x11); // Length = 17
-    file.put(0x08); // Sample precision
-    file.put((height >> 8) & 0xFF);
-    file.put(height & 0xFF); // Image height
-    file.put((width >> 8) & 0xFF);
-    file.put(width & 0xFF); // Image width
-    file.put(0x01);         // Number of components
-    file.put(0x01);         // Component ID: Y
-    file.put(0x11);         // Sampling factors: H=1, V=1
-    file.put(0x00);         // Quant table number
+    file.put(0x11); // 17 bytes total for 3 components
 
-    // 4. DHT (Define Huffman Table) — Example: using dummy table
+    file.put(0x08);
+    file.put((height >> 8) & 0xFF);
+    file.put(height & 0xFF);
+    file.put((width >> 8) & 0xFF);
+    file.put(width & 0xFF);
+    file.put(0x03); // Nf = 3
+
+    // Y component
+    file.put(0x01); // ID = 1
+    file.put(0x22); // H=2, V=2 (for 4:2:0) or 0x11 for 1×1
+    file.put(0x00); // QTable = 0
+
+    // Cb component
+    file.put(0x02); // ID = 2
+    file.put(0x11); // H=1, V=1
+    file.put(0x01); // QTable = 1
+
+    // Cr component
+    file.put(0x03); // ID = 3
+    file.put(0x11); // H=1, V=1
+    file.put(0x01); // QTable = 1
+
+    // 4. DHT (Define Huffman Table)
     writeHuffmanTables(file);
 
     // 6. SOS (Start of Scan)
@@ -645,7 +673,71 @@ void JPEGCompressor::writeJPEGFile(const std::string &filename)
     file.put(0x00); // Ah/Al
 
     // 7. Compressed Entropy Data
-    
+    uint8_t bitBuffer = 0;
+    int bitCount = 0;
+    auto writeBit = [&](bool b)
+    {
+        bitBuffer = (bitBuffer << 1) | (b ? 1 : 0);
+        if (++bitCount == 8)
+        {
+            file.put(bitBuffer);
+            if (bitBuffer == 0xFF)
+                file.put(0x00);
+            bitCount = 0;
+            bitBuffer = 0;
+        }
+    };
+    auto writeStr = [&](const string &s)
+    {
+        for (char c : s)
+            writeBit(c == '1');
+    };
+
+    int prevY = 0, prevCb = 0, prevCr = 0;
+    size_t nMCUs = qBlocksY.size() / 4; // # of 4:2:0 MCUs
+    for (size_t m = 0; m < nMCUs; ++m)
+    {
+        // 4 Y blocks
+        for (int i = 0; i < 4; ++i)
+        {
+            auto &B = qBlocksY[m * 4 + i];
+            int diff = B[0][0] - prevY;
+            string dc = huffmanEncodeDC(diff);
+            writeStr(dc);
+            prevY = B[0][0];
+
+            auto rle = runLengthEncode(zigzagScan(B));
+            string ac = huffmanEncodeAC(rle);
+            writeStr(ac);
+        }
+        // Cb block
+        {
+            auto &B = qBlocksCb[m];
+            int diff = B[0][0] - prevCb;
+            writeStr(huffmanEncodeDC(diff));
+            prevCb = B[0][0];
+            writeStr(huffmanEncodeAC(runLengthEncode(zigzagScan(B))));
+        }
+        // Cr block
+        {
+            auto &B = qBlocksCr[m];
+            int diff = B[0][0] - prevCr;
+            writeStr(huffmanEncodeDC(diff));
+            prevCr = B[0][0];
+            writeStr(huffmanEncodeAC(runLengthEncode(zigzagScan(B))));
+        }
+    }
+
+    // flush remainder
+    if (bitCount > 0)
+    {
+        int pad = (1 << (8 - bitCount)) - 1;
+        bitBuffer = (bitBuffer << (8 - bitCount)) | pad;
+        file.put(bitBuffer);
+        if (bitBuffer == 0xFF)
+            file.put(0x00);
+    }
+
     // 8. EOI
     file.put(0xFF);
     file.put(0xD9);
