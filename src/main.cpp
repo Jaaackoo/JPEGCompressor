@@ -9,7 +9,7 @@ using namespace std;
 int main()
 {
 
-    string fileName = "Clown.ppm";
+    string fileName = "Poivron.ppm";
     string outputFileName = "outputClown.ppm";
 
     PPMImage img;

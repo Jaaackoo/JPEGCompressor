@@ -1,4 +1,35 @@
 #include "JPEGCompressor.hpp"
+
+// A helper struct:
+struct HuffmanCode
+{
+    uint16_t code; // left-aligned bits
+    uint8_t length;
+};
+
+// Build a map from symbol→(code,length)
+void buildHuffmanCodes(const uint8_t bits[16],
+                       const uint8_t huffval[],
+                       int valCount,
+                       HuffmanCode outCodes[256])
+{
+    // JPEG canonical algorithm:
+    // 1) For each bit-length L = 1..16, there are bits[L-1] codes.
+    // 2) Starting with code = 0, assign codes in ascending order of symbol
+    uint16_t code = 0;
+    int idx = 0;
+    for (int L = 1; L <= 16; ++L)
+    {
+        for (int i = 0; i < bits[L - 1]; ++i)
+        {
+            uint8_t symbol = huffval[idx++];
+            outCodes[symbol] = {code, (uint8_t)L};
+            ++code;
+        }
+        code <<= 1;
+    }
+}
+
 const uint8_t standardLuminanceQuantTable[8][8] = {
     {16, 11, 10, 16, 24, 40, 51, 61},
     {12, 12, 14, 19, 26, 58, 60, 55},
@@ -59,6 +90,11 @@ void JPEGCompressor::compress(void)
     this->splitIntoBlocks();
     this->applyDCTToAllBlocks();
     this->quantizeAllBlocks();
+    if (!qBlocksCb.empty())
+    {
+        std::cout << "Cb DC[0]: " << qBlocksCb[0][0][0]
+                  << "   Cr DC[0]: " << qBlocksCr[0][0][0] << "\n";
+    }
 }
 
 /**
@@ -171,29 +207,28 @@ void JPEGCompressor::splitIntoBlocks()
  * @param block 8x8 input block
  * @return 8x8 transformed block
  */
-std::vector<std::vector<double>> JPEGCompressor::applyDCT(const std::vector<std::vector<double>> &block)
+std::vector<std::vector<double>> JPEGCompressor::applyDCT(
+    const std::vector<std::vector<double>> &inBlock)
 {
+    // 1) Level-shift into signed range
+    std::vector<std::vector<double>> block(8, std::vector<double>(8));
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x)
+            block[y][x] = inBlock[y][x] - 128.0;
+
+    // 2) Now do your normal DCT on ‘block’
     const double PI = std::acos(-1);
-    std::vector<std::vector<double>> dctBlock(8, std::vector<double>(8, 0.0));
-
-    for (int u = 0; u < 8; u++)
+    std::vector<std::vector<double>> dctBlock(8, std::vector<double>(8));
+    for (int u = 0; u < 8; ++u)
     {
-        for (int v = 0; v < 8; v++)
+        for (int v = 0; v < 8; ++v)
         {
-            double sum = 0.0;
-            for (int x = 0; x < 8; x++)
-            {
-                for (int y = 0; y < 8; y++)
-                {
-                    sum += block[x][y] *
-                           std::cos((2 * x + 1) * u * PI / 16.0) *
-                           std::cos((2 * y + 1) * v * PI / 16.0);
-                }
-            }
-
+            double sum = 0;
+            for (int y = 0; y < 8; ++y)
+                for (int x = 0; x < 8; ++x)
+                    sum += block[y][x] * std::cos((2 * y + 1) * u * PI / 16) * std::cos((2 * x + 1) * v * PI / 16);
             double cu = (u == 0) ? (1.0 / std::sqrt(2)) : 1.0;
             double cv = (v == 0) ? (1.0 / std::sqrt(2)) : 1.0;
-
             dctBlock[u][v] = 0.25 * cu * cv * sum;
         }
     }
@@ -222,15 +257,6 @@ void JPEGCompressor::applyDCTToAllBlocks()
     }
 
     const std::vector<std::vector<double>> &block = blocksCb[0];
-    std::cout << "DCT coefficients for first Y block:\n";
-    for (const std::vector<double> &row : block)
-    {
-        for (double val : row)
-        {
-            std::cout << std::fixed << std::setprecision(1) << val << "\t";
-        }
-        std::cout << "\n";
-    }
 }
 
 std::vector<std::vector<int>> JPEGCompressor::quantizeBlock(
@@ -614,6 +640,90 @@ void writeHuffmanTables(std::ofstream &file)
 
 void JPEGCompressor::writeJPEGFile(const std::string &filename)
 {
+    // DC Luminance
+    uint8_t bits_dc_luminance[16] = {
+        0x00, // 1-bit codes:   0
+        0x01, // 2-bit codes:   1
+        0x05, // 3-bit codes:   5
+        0x01, // 4-bit codes:   1
+        0x01, // 5-bit codes:   1
+        0x01, // 6-bit codes:   1
+        0x01, // 7-bit codes:   1
+        0x01, // 8-bit codes:   1
+        0x01, // 9-bit codes:   1
+        0x00, // 10-bit codes:  0
+        0x00, // 11-bit codes:  0
+        0x00, // 12-bit codes:  0
+        0x00, // 13-bit codes:  0
+        0x00, // 14-bit codes:  0
+        0x00, // 15-bit codes:  0
+        0x00  // 16-bit codes:  0
+    };
+    uint8_t val_dc_luminance[12] = {
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+
+    // DC Chrominance
+    uint8_t bits_dc_chrominance[16] = {
+        0x00, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+        0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t val_dc_chrominance[12] = {
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+    // AC chrominance
+    uint8_t bits_ac_luminance[16] = {
+        0x00, 0x02, 0x01, 0x03, 0x03, 0x02, 0x04, 0x03,
+        0x05, 0x05, 0x04, 0x04, 0x00, 0x00, 0x01, 0x7D};
+    uint8_t val_ac_luminance[162] = {
+        0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12,
+        0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07,
+        0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xA1, 0x08,
+        0x23, 0x42, 0xB1, 0xC1, 0x15, 0x52, 0xD1, 0xF0,
+        0x24, 0x33, 0x62, 0x72, 0x82, 0x09, 0x0A, 0x16,
+        0x17, 0x18, 0x19, 0x1A, 0x25, 0x26, 0x27, 0x28,
+        0x29, 0x2A, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,
+        0x3A, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49,
+        0x4A, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59,
+        0x5A, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69,
+        0x6A, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79,
+        0x7A, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89,
+        0x8A, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98,
+        0x99, 0x9A, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+        0xA8, 0xA9, 0xAA, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6,
+        0xB7, 0xB8, 0xB9, 0xBA, 0xC2, 0xC3, 0xC4, 0xC5,
+        0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xD2, 0xD3, 0xD4,
+        0xD5, 0xD6, 0xD7, 0xD8, 0xD9, 0xDA, 0xE1, 0xE2,
+        0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xE8, 0xE9, 0xEA,
+        0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8,
+        0xF9, 0xFA};
+
+    // AC Chrominance
+    uint8_t bits_ac_chrominance[16] = {
+        0x00, 0x02, 0x01, 0x02, 0x04, 0x04, 0x03, 0x04,
+        0x07, 0x05, 0x04, 0x04, 0x00, 0x01, 0x02, 0x77};
+    uint8_t val_ac_chrominance[162] = {
+        0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21,
+        0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71,
+        0x13, 0x22, 0x32, 0x81, 0x08, 0x14, 0x42, 0x91,
+        0xA1, 0xB1, 0xC1, 0x09, 0x23, 0x33, 0x52, 0xF0,
+        0x15, 0x62, 0x72, 0xD1, 0x0A, 0x16, 0x24, 0x34,
+        0xE1, 0x25, 0xF1, 0x17, 0x18, 0x19, 0x1A, 0x26,
+        0x27, 0x28, 0x29, 0x2A, 0x35, 0x36, 0x37, 0x38,
+        0x39, 0x3A, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+        0x49, 0x4A, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
+        0x59, 0x5A, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68,
+        0x69, 0x6A, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78,
+        0x79, 0x7A, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+        0x88, 0x89, 0x8A, 0x92, 0x93, 0x94, 0x95, 0x96,
+        0x97, 0x98, 0x99, 0x9A, 0xA2, 0xA3, 0xA4, 0xA5,
+        0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xB2, 0xB3, 0xB4,
+        0xB5, 0xB6, 0xB7, 0xB8, 0xB9, 0xBA, 0xC2, 0xC3,
+        0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xD2,
+        0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9, 0xDA,
+        0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xE8, 0xE9,
+        0xEA, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8,
+        0xF9, 0xFA};
+
     std::ofstream file(filename, std::ios::binary);
     if (!file.is_open())
     {
@@ -632,6 +742,7 @@ void JPEGCompressor::writeJPEGFile(const std::string &filename)
     // 3. SOF0 (Start of Frame - Baseline DCT)
     file.put(0xFF);
     file.put(0xC0);
+
     file.put(0x00);
     file.put(0x11); // 17 bytes total for 3 components
 
@@ -659,15 +770,38 @@ void JPEGCompressor::writeJPEGFile(const std::string &filename)
 
     // 4. DHT (Define Huffman Table)
     writeHuffmanTables(file);
+    HuffmanCode dcLumaCodes[12], acLumaCodes[256];
+    HuffmanCode dcChromaCodes[12], acChromaCodes[256];
+
+    // e.g. at init:
+    buildHuffmanCodes(bits_dc_luminance, val_dc_luminance, 12, dcLumaCodes);
+    buildHuffmanCodes(bits_ac_luminance, val_ac_luminance, 162, acLumaCodes);
+    buildHuffmanCodes(bits_dc_chrominance, val_dc_chrominance, 12, dcChromaCodes);
+    buildHuffmanCodes(bits_ac_chrominance, val_ac_chrominance, 162, acChromaCodes);
 
     // 6. SOS (Start of Scan)
     file.put(0xFF);
     file.put(0xDA);
+
+    // We have 3 components, so length = 6 + 2*3 = 12
     file.put(0x00);
-    file.put(0x08); // Length = 8
-    file.put(0x01); // 1 Component
-    file.put(0x01); // Component ID: Y
-    file.put(0x00); // Huffman table: DC/AC = 0
+    file.put(0x0C);
+
+    file.put(0x03); // 3 components in scan
+
+    // Y  : component ID = 1, DC-table=0, AC-table=0 → selector = 0x00
+    file.put(0x01);
+    file.put(0x00);
+
+    // Cb : component ID = 2, DC-table=1, AC-table=1 → selector = 0x11
+    file.put(0x02);
+    file.put(0x11);
+
+    // Cr : component ID = 3, DC-table=1, AC-table=1 → selector = 0x11
+    file.put(0x03);
+    file.put(0x11);
+
+    // spectral selection (baseline JPEG)
     file.put(0x00); // Ss
     file.put(0x3F); // Se
     file.put(0x00); // Ah/Al
@@ -693,24 +827,23 @@ void JPEGCompressor::writeJPEGFile(const std::string &filename)
             writeBit(c == '1');
     };
 
+    bitBuffer = 0;
+    bitCount = 0;
+
     int prevY = 0, prevCb = 0, prevCr = 0;
-    size_t nMCUs = qBlocksY.size() / 4; // # of 4:2:0 MCUs
+    size_t nMCUs = qBlocksY.size() / 4;
     for (size_t m = 0; m < nMCUs; ++m)
     {
-        // 4 Y blocks
+        // — Y 4:2:0 => 4 Y blocks per MCU
         for (int i = 0; i < 4; ++i)
         {
             auto &B = qBlocksY[m * 4 + i];
             int diff = B[0][0] - prevY;
-            string dc = huffmanEncodeDC(diff);
-            writeStr(dc);
+            writeStr(huffmanEncodeDC(diff));
             prevY = B[0][0];
-
-            auto rle = runLengthEncode(zigzagScan(B));
-            string ac = huffmanEncodeAC(rle);
-            writeStr(ac);
+            writeStr(huffmanEncodeAC(runLengthEncode(zigzagScan(B))));
         }
-        // Cb block
+        // — Cb
         {
             auto &B = qBlocksCb[m];
             int diff = B[0][0] - prevCb;
@@ -718,7 +851,7 @@ void JPEGCompressor::writeJPEGFile(const std::string &filename)
             prevCb = B[0][0];
             writeStr(huffmanEncodeAC(runLengthEncode(zigzagScan(B))));
         }
-        // Cr block
+        // — Cr
         {
             auto &B = qBlocksCr[m];
             int diff = B[0][0] - prevCr;
@@ -728,7 +861,7 @@ void JPEGCompressor::writeJPEGFile(const std::string &filename)
         }
     }
 
-    // flush remainder
+    // flush any leftover bits
     if (bitCount > 0)
     {
         int pad = (1 << (8 - bitCount)) - 1;

@@ -24,6 +24,9 @@ struct YCbCrPixel
 class JPEGCompressor
 {
 public:
+    uint8_t bitBuffer = 0;
+    int bitCount = 0;
+    std::ofstream out; // your open file stream
     JPEGCompressor(Image &image);
     void compress(void);
     const std::vector<std::vector<int>> &getQuantizedYBlock(int index) const;
