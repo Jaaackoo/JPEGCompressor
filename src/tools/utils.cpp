@@ -7,12 +7,13 @@
 
 void test_YcrCb(Image *img)
 {
-    vector<Pixel> yPixels, cbPixels, crPixels;
+    vector<Pixel> yPixels, cbPixels, crPixels, testPixels;
     const vector<Pixel> pixels = img->getPixels();
 
     yPixels.reserve(pixels.size());
     cbPixels.reserve(pixels.size());
     crPixels.reserve(pixels.size());
+    testPixels.reserve(pixels.size());
 
     for (const Pixel &p : pixels)
     {
@@ -29,35 +30,61 @@ void test_YcrCb(Image *img)
         uint8_t Cb = clamp(static_cast<int>(cb), 0, 255);
         uint8_t Cr = clamp(static_cast<int>(cr), 0, 255);
 
-        yPixels.push_back({Y, Y, Y});     // On doit voir le même constraste de lumiere
-        cbPixels.push_back({Cb, Cb, Cb}); // On voit que les zones bleus
-        crPixels.push_back({Cr, Cr, Cr}); // On voit que les zones rouges
+        yPixels.push_back({Y, Y, Y});       // On doit voir le même constraste de lumiere
+        cbPixels.push_back({128, 128, Cb}); // On voit que les zones bleus
+        crPixels.push_back({Cr, 128, 128}); // On voit que les zones rouges
+
+        // Test Image
+        float Crn = (float(Cr) - 128.0f) / 127.0f; // dans [-1…+1]
+
+        uint8_t r2, g2, b2;
+        if (Crn >= 0.0f)
+        {
+            // vers magenta
+            float w = Crn; // 0..1
+            r2 = clamp(int(std::round(128 * (1 - w) + 255 * w)), 0, 255);
+            g2 = clamp(int(std::round(128 * (1 - w) + 0 * w)), 0, 255);
+            b2 = clamp(int(std::round(128 * (1 - w) + 255 * w)), 0, 255);
+        }
+        else
+        {
+            // vers vert
+            float w = -Crn; // 0..1
+            r2 = clamp(int(std::round(128 * (1 - w) + 0 * w)), 0, 255);
+            g2 = clamp(int(std::round(128 * (1 - w) + 255 * w)), 0, 255);
+            b2 = clamp(int(std::round(128 * (1 - w) + 0 * w)), 0, 255);
+        }
+        testPixels.push_back({(uint8_t)r2, (uint8_t)g2, (uint8_t)b2}); // On voit que les zones rouges
+
     }
 
-    PPMImage yImg, cbImg, crImg;
+    PPMImage yImg, cbImg, crImg, testImg;
 
     yImg.setFileType("P6");
     cbImg.setFileType("P6");
     crImg.setFileType("P6");
+    testImg.setFileType("P6");
 
     yImg.setMaxVal(255);
     cbImg.setMaxVal(255);
     crImg.setMaxVal(255);
+    testImg.setMaxVal(255);
 
     yImg.setSize(img->getHeight(), img->getWidth());
     cbImg.setSize(img->getHeight(), img->getWidth());
     crImg.setSize(img->getHeight(), img->getWidth());
+    testImg.setSize(img->getHeight(), img->getWidth());
 
     yImg.setPixels(yPixels);
     cbImg.setPixels(cbPixels);
     crImg.setPixels(crPixels);
+    testImg.setPixels(testPixels);
 
     yImg.save("Clown_Y.ppm");
     cbImg.save("Clown_Cb.ppm");
     crImg.save("Clown_Cr.ppm");
+    testImg.save("Clown_Rouge.ppm");
 }
-
-
 
 // void test_splitYToBlocks(Image *img)
 // {

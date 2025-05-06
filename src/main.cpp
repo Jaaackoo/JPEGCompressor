@@ -18,15 +18,16 @@ int main()
         return 1;
     }
 
-    JPEGCompressor compressor(img);
-    compressor.compress();
-    compressor.writeJPEGFile("ALEDz.jpg");
+    // JPEGCompressor compressor(img);
+    // compressor.compress();
+    // compressor.writeJPEGFile("ALEDz.jpg")    ;
 
-    return 0;
+    // return 0;
     // compressor.compress();
 
     // 3. Convert RGB → YCbCr
     // compressor.convertToYCbCr();
+    test_YcrCb(&img);
 
     // // 4. Subsample (4:2:0)
     // compressor.subsample420();
