@@ -1,11 +1,6 @@
 #include "JPEGCompressor.hpp"
 
-// A helper struct:
-struct HuffmanCode
-{
-    uint16_t code; // left-aligned bits
-    uint8_t length;
-};
+
 
 // Build a map from symbol→(code,length)
 void buildHuffmanCodes(const uint8_t bits[16],
@@ -27,6 +22,37 @@ void buildHuffmanCodes(const uint8_t bits[16],
             ++code;
         }
         code <<= 1;
+    }
+}
+
+void writeBits(uint16_t bits, uint8_t length, ofstream& file) {
+    static uint8_t currentByte = 0;
+    static int bitPosition = 0;
+    // flush + reset si length==0
+    if (length == 0) {
+        if (bitPosition > 0) {
+            file.put(currentByte);
+            // byte‑stuffing obligatoire en JPEG :
+            if (currentByte == 0xFF)
+                file.put((uint8_t)0x00);
+        }
+        // réinitialisation complète
+        currentByte = 0;
+        bitPosition  = 0;
+        return;
+    }
+
+
+    for (int i = length - 1; i >= 0; --i) {
+        currentByte |= ((bits >> i) & 1) << (7 - bitPosition);
+        bitPosition++;
+        if (bitPosition == 8) {
+            file.put(currentByte);
+            if (currentByte == 0xFF)
+                file.put((uint8_t)0x00);
+            currentByte = 0;
+            bitPosition = 0;
+        }
     }
 }
 
@@ -355,69 +381,78 @@ std::vector<std::pair<int, int>> JPEGCompressor::runLengthEncode(const std::vect
 }
 
 // Simplified DC encoding
-std::string JPEGCompressor::huffmanEncodeDC(int dcDiff)
+void JPEGCompressor::huffmanEncodeDC(int dcDiff, ofstream& file, HuffmanCode dcLumaCodes[12])
 {
-    int bits = 0;
+    int category = 0;
     int temp = std::abs(dcDiff);
 
     while (temp > 0)
     {
         temp >>= 1;
-        bits++;
+        category++;
     }
 
-    // Simulate writing the category (size) and the actual bits
-    std::string result = "[DC Category " + std::to_string(bits) + "]";
+    HuffmanCode huff = dcLumaCodes[category];
 
-    if (bits > 0)
-    {
-        int positiveVal = (dcDiff >= 0) ? dcDiff : ((1 << bits) - 1 + dcDiff);
-        result += " bits=" + std::bitset<12>(positiveVal).to_string().substr(12 - bits, bits);
+    writeBits(huff.code, huff.length, file);
+
+    // Encode value bits
+    if (category > 0) {
+        uint16_t bits;
+        if (dcDiff >= 0) {
+            bits = dcDiff;
+        } else {
+            bits = (1 << category) - 1 + dcDiff; // JPEG negative value encoding
+        }
+        writeBits(bits, category, file);
     }
-
-    return result;
 }
 
 // Simplified AC encoding
-std::string JPEGCompressor::huffmanEncodeAC(const std::vector<std::pair<int, int>> &rleBlock)
+void JPEGCompressor::huffmanEncodeAC(const std::vector<std::pair<int, int>> &rle,
+                                     const HuffmanCode huffAC[256],
+                                     ofstream& file)
 {
-    std::string result;
-    for (size_t i = 1; i < rleBlock.size(); ++i) // Skip DC
+    for (size_t i = 1; i < rle.size(); ++i)
     {
-        int zeros = rleBlock[i].first;
-        int val = rleBlock[i].second;
+        int zeros = rle[i].first;
+        int val = rle[i].second;
 
         if (val == 0 && zeros == 0)
         {
-            result += " [EOB]";
+            // End-of-block (EOB)
+            HuffmanCode eob = huffAC[0x00];
+            writeBits(eob.code, eob.length, file);
             break;
         }
 
         while (zeros > 15)
         {
-            result += " [ZRL]"; // Zero Run Length (16 zeros)
+            // Write ZRL (16 zeros → code 0xF0)
+            HuffmanCode zrl = huffAC[0xF0];
+            writeBits(zrl.code, zrl.length, file);
             zeros -= 16;
         }
 
-        int bits = 0;
-        int temp = std::abs(val);
-        while (temp > 0)
-        {
-            temp >>= 1;
-            bits++;
+        int category = 0;
+        int magnitude = std::abs(val);
+        while (magnitude != 0) {
+            magnitude >>= 1;
+            category++;
         }
 
-        result += " [" + std::to_string(zeros) + "/" + std::to_string(bits) + "]";
+        int symbol = (zeros << 4) | category;
+        HuffmanCode huff = huffAC[symbol];
+        writeBits(huff.code, huff.length, file);
 
-        if (bits > 0)
+        if (category > 0)
         {
-            int positiveVal = (val >= 0) ? val : ((1 << bits) - 1 + val);
-            result += " bits=" + std::bitset<12>(positiveVal).to_string().substr(12 - bits, bits);
+            uint16_t bits = (val >= 0) ? val : (1 << category) - 1 + val;
+            writeBits(bits, category, file);
         }
     }
-
-    return result;
 }
+
 
 PPMImage JPEGCompressor::reconstructRGBImage() const
 {
@@ -807,28 +842,6 @@ void JPEGCompressor::writeJPEGFile(const std::string &filename)
     file.put(0x00); // Ah/Al
 
     // 7. Compressed Entropy Data
-    uint8_t bitBuffer = 0;
-    int bitCount = 0;
-    auto writeBit = [&](bool b)
-    {
-        bitBuffer = (bitBuffer << 1) | (b ? 1 : 0);
-        if (++bitCount == 8)
-        {
-            file.put(bitBuffer);
-            if (bitBuffer == 0xFF)
-                file.put(0x00);
-            bitCount = 0;
-            bitBuffer = 0;
-        }
-    };
-    auto writeStr = [&](const string &s)
-    {
-        for (char c : s)
-            writeBit(c == '1');
-    };
-
-    bitBuffer = 0;
-    bitCount = 0;
 
     int prevY = 0, prevCb = 0, prevCr = 0;
     size_t nMCUs = qBlocksY.size() / 4;
@@ -839,37 +852,30 @@ void JPEGCompressor::writeJPEGFile(const std::string &filename)
         {
             auto &B = qBlocksY[m * 4 + i];
             int diff = B[0][0] - prevY;
-            writeStr(huffmanEncodeDC(diff));
+            huffmanEncodeDC(diff, file, dcLumaCodes);
             prevY = B[0][0];
-            writeStr(huffmanEncodeAC(runLengthEncode(zigzagScan(B))));
+            huffmanEncodeAC(runLengthEncode(zigzagScan(B)), acLumaCodes, file);
         }
         // — Cb
         {
             auto &B = qBlocksCb[m];
             int diff = B[0][0] - prevCb;
-            writeStr(huffmanEncodeDC(diff));
+            huffmanEncodeDC(diff, file, dcChromaCodes);
             prevCb = B[0][0];
-            writeStr(huffmanEncodeAC(runLengthEncode(zigzagScan(B))));
+            huffmanEncodeAC(runLengthEncode(zigzagScan(B)), acChromaCodes, file);
         }
         // — Cr
         {
             auto &B = qBlocksCr[m];
             int diff = B[0][0] - prevCr;
-            writeStr(huffmanEncodeDC(diff));
+            huffmanEncodeDC(diff, file, dcChromaCodes);
             prevCr = B[0][0];
-            writeStr(huffmanEncodeAC(runLengthEncode(zigzagScan(B))));
+            huffmanEncodeAC(runLengthEncode(zigzagScan(B)), acChromaCodes, file);
         }
     }
 
-    // flush any leftover bits
-    if (bitCount > 0)
-    {
-        int pad = (1 << (8 - bitCount)) - 1;
-        bitBuffer = (bitBuffer << (8 - bitCount)) | pad;
-        file.put(bitBuffer);
-        if (bitBuffer == 0xFF)
-            file.put(0x00);
-    }
+    //Flush the buffer if needed
+    writeBits(0,0,file);
 
     // 8. EOI
     file.put(0xFF);

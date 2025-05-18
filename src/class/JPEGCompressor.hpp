@@ -21,6 +21,13 @@ struct YCbCrPixel
     double cr;
 };
 
+// A helper struct:
+struct HuffmanCode
+{
+    uint16_t code; // left-aligned bits
+    uint8_t length;
+};
+
 class JPEGCompressor
 {
 public:
@@ -43,8 +50,10 @@ public:
 
     std::vector<std::pair<int, int>> runLengthEncode(const std::vector<int> &zigzaggedBlock);
 
-    std::string huffmanEncodeDC(int dcDiff);
-    std::string huffmanEncodeAC(const std::vector<std::pair<int, int>> &rleBlock);
+    void huffmanEncodeDC(int dcDiff, ofstream& file, HuffmanCode dcLumaCodes[12]);
+    void huffmanEncodeAC(const std::vector<std::pair<int, int>> &rle,
+                                     const HuffmanCode huffAC[256],
+                                     ofstream& file);
 
     // test
     PPMImage reconstructRGBImage() const;
