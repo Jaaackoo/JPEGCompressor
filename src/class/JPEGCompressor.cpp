@@ -93,9 +93,9 @@ YCbCrPixel JPEGCompressor::RGBtoYCbCr(const Pixel &pixel)
     double b = static_cast<double>(pixel.B);
 
     YCbCrPixel result;
-    result.y = 0.299 * r + 0.587 * g + 0.114 * b;
-    result.cb = -0.1687 * r - 0.3313 * g + 0.5 * b + 128;
-    result.cr = 0.5 * r - 0.4187 * g - 0.0813 * b + 128;
+    result.y = (0.299 * r) + (0.587 * g) + (0.114 * b);
+    result.cb = (-0.1687 * r) + (-0.3313 * g) + (0.5 * b) + 128;
+    result.cr = (0.5 * r) + (-0.4187 * g) + (-0.0813 * b) + 128;
 
     return result;
 }
@@ -281,8 +281,6 @@ void JPEGCompressor::applyDCTToAllBlocks()
     {
         block = applyDCT(block);
     }
-
-    const std::vector<std::vector<double>> &block = blocksCb[0];
 }
 
 std::vector<std::vector<int>> JPEGCompressor::quantizeBlock(
@@ -618,7 +616,7 @@ void writeHuffmanTables(std::ofstream &file)
     file.put(0xC4);
     file.put(0x00);
     file.put(0xB5); // Length = 418 (2 + 1 + 16 + 162)
-    file.put(0x10); // AC, Table 0
+    file.put(0x10); // AC, Table 0huffman
     file.write(reinterpret_cast<char *>(bits_ac_luminance), 16);
     file.write(reinterpret_cast<char *>(val_ac_luminance), 162);
 

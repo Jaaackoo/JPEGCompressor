@@ -20,7 +20,7 @@ int main()
 
     JPEGCompressor compressor(img);
     compressor.compress();
-    compressor.writeJPEGFile("ALEDz.jpg");
+    compressor.writeJPEGFile("sortie.jpg");
 
     return 0;
     // compressor.compress();
